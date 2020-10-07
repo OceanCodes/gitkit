@@ -141,6 +141,12 @@ func (s *Server) getInfoRefs(_ string, w http.ResponseWriter, r *Request) {
 	}
 
 	cmd, pipe := gitCommand(s.config.GitPath, subCommand(rpc), "--stateless-rpc", "--advertise-refs", r.RepoPath)
+
+	gitProtocol := r.Header.Get("Git-Protocol")
+	if len(gitProtocol) != 0 {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("GIT_PROTOCOL=%s", gitProtocol))
+	}
+
 	if err := cmd.Start(); err != nil {
 		fail500(w, context, err)
 		return
@@ -151,14 +157,16 @@ func (s *Server) getInfoRefs(_ string, w http.ResponseWriter, r *Request) {
 	w.Header().Add("Cache-Control", "no-cache")
 	w.WriteHeader(200)
 
-	if err := packLine(w, fmt.Sprintf("# service=%s\n", rpc)); err != nil {
-		logError(context, err)
-		return
-	}
+	if determineProtocolVersion(gitProtocol) != protocol_v2 {
+		if err := packLine(w, fmt.Sprintf("# service=%s\n", rpc)); err != nil {
+			logError(context, err)
+			return
+		}
 
-	if err := packFlush(w); err != nil {
-		logError(context, err)
-		return
+		if err := packFlush(w); err != nil {
+			logError(context, err)
+			return
+		}
 	}
 
 	if _, err := io.Copy(w, pipe); err != nil {
@@ -186,6 +194,12 @@ func (s *Server) postRPC(rpc string, w http.ResponseWriter, r *Request) {
 	}
 
 	cmd, pipe := gitCommand(s.config.GitPath, subCommand(rpc), "--stateless-rpc", r.RepoPath)
+
+	gitProtocol := r.Header.Get("Git-Protocol")
+	if len(gitProtocol) != 0 {
+		cmd.Env = append(cmd.Env, fmt.Sprintf("GIT_PROTOCOL=%s", gitProtocol))
+	}
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		fail500(w, context, err)
