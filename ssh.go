@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -89,7 +88,7 @@ func (s *SSH) handleConnection(keyID string, chans <-chan ssh.NewChannel) {
 
 		ch, reqs, err := newChan.Accept()
 		if err != nil {
-			log.Printf("error accepting channel: %v", err)
+			logger.Printf("error accepting channel: %v", err)
 			continue
 		}
 
@@ -101,30 +100,30 @@ func (s *SSH) handleConnection(keyID string, chans <-chan ssh.NewChannel) {
 
 				switch req.Type {
 				case "env":
-					log.Printf("ssh: incoming env request: %s\n", payload)
+					logger.Printf("ssh: incoming env request: %s\n", payload)
 
 					args := strings.Split(strings.Replace(payload, "\x00", "", -1), "\v")
 					if len(args) != 2 {
-						log.Printf("env: invalid env arguments: '%#v'", args)
+						logger.Printf("env: invalid env arguments: '%#v'", args)
 						continue
 					}
 
 					args[0] = strings.TrimLeft(args[0], "\x04")
 					if len(args[0]) == 0 {
-						log.Printf("env: invalid key from payload: %s", payload)
+						logger.Printf("env: invalid key from payload: %s", payload)
 						continue
 					}
 
 					_, _, err := execCommandBytes("env", args[0]+"="+args[1])
 					if err != nil {
-						log.Printf("env: %v", err)
+						logger.Printf("env: %v", err)
 						return
 					}
 				case "exec":
-					log.Printf("ssh: incoming exec request: %s\n", payload)
+					logger.Printf("ssh: incoming exec request: %s\n", payload)
 
 					cmdName := strings.TrimLeft(payload, "'()")
-					log.Printf("ssh: payload '%v'", cmdName)
+					logger.Printf("ssh: payload '%v'", cmdName)
 
 					if strings.HasPrefix(cmdName, "\x00") {
 						cmdName = strings.Replace(cmdName, "\x00", "", -1)[1:]
@@ -132,7 +131,7 @@ func (s *SSH) handleConnection(keyID string, chans <-chan ssh.NewChannel) {
 
 					gitcmd, err := ParseGitCommand(cmdName)
 					if err != nil {
-						log.Println("ssh: error parsing command:", err)
+						logger.Println("ssh: error parsing command:", err)
 						ch.Write([]byte("Invalid command.\r\n"))
 						return
 					}
@@ -152,24 +151,24 @@ func (s *SSH) handleConnection(keyID string, chans <-chan ssh.NewChannel) {
 
 					stdout, err := cmd.StdoutPipe()
 					if err != nil {
-						log.Printf("ssh: cant open stdout pipe: %v", err)
+						logger.Printf("ssh: cant open stdout pipe: %v", err)
 						return
 					}
 
 					stderr, err := cmd.StderrPipe()
 					if err != nil {
-						log.Printf("ssh: cant open stderr pipe: %v", err)
+						logger.Printf("ssh: cant open stderr pipe: %v", err)
 						return
 					}
 
 					input, err := cmd.StdinPipe()
 					if err != nil {
-						log.Printf("ssh: cant open stdin pipe: %v", err)
+						logger.Printf("ssh: cant open stdin pipe: %v", err)
 						return
 					}
 
 					if err = cmd.Start(); err != nil {
-						log.Printf("ssh: start error: %v", err)
+						logger.Printf("ssh: start error: %v", err)
 						return
 					}
 
@@ -179,7 +178,7 @@ func (s *SSH) handleConnection(keyID string, chans <-chan ssh.NewChannel) {
 					io.Copy(ch.Stderr(), stderr)
 
 					if err = cmd.Wait(); err != nil {
-						log.Printf("ssh: command failed: %v", err)
+						logger.Printf("ssh: command failed: %v", err)
 						return
 					}
 
@@ -187,7 +186,7 @@ func (s *SSH) handleConnection(keyID string, chans <-chan ssh.NewChannel) {
 					return
 				default:
 					ch.Write([]byte("Unsupported request type.\r\n"))
-					log.Println("ssh: unsupported req type:", req.Type)
+					logger.Println("ssh: unsupported req type:", req.Type)
 					return
 				}
 			}
@@ -317,19 +316,19 @@ func (s *SSH) Serve() error {
 		}
 
 		go func() {
-			log.Printf("ssh: handshaking for %s", conn.RemoteAddr())
+			logger.Printf("ssh: handshaking for %s", conn.RemoteAddr())
 
 			sConn, chans, reqs, err := ssh.NewServerConn(conn, s.sshconfig)
 			if err != nil {
 				if err == io.EOF {
-					log.Printf("ssh: handshaking was terminated: %v", err)
+					logger.Printf("ssh: handshaking was terminated: %v", err)
 				} else {
-					log.Printf("ssh: error on handshaking: %v", err)
+					logger.Printf("ssh: error on handshaking: %v", err)
 				}
 				return
 			}
 
-			log.Printf("ssh: connection from %s (%s)", sConn.RemoteAddr(), sConn.ClientVersion())
+			logger.Printf("ssh: connection from %s (%s)", sConn.RemoteAddr(), sConn.ClientVersion())
 
 			if s.config.Auth && s.config.GitUser != "" && sConn.User() != s.config.GitUser {
 				sConn.Close()

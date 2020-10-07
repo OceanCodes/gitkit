@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -13,17 +14,24 @@ import (
 
 var reSlashDedup = regexp.MustCompile(`\/{2,}`)
 
+var logger = log.New(os.Stderr, "", log.LstdFlags)
+
+// SetLogger sets the package wide logger.
+func SetLogger(l *log.Logger) {
+	logger = l
+}
+
 func fail500(w http.ResponseWriter, context string, err error) {
 	http.Error(w, "Internal server error", 500)
 	logError(context, err)
 }
 
 func logError(context string, err error) {
-	log.Printf("%s: %v\n", context, err)
+	logger.Printf("%s: %v\n", context, err)
 }
 
 func logInfo(context string, message string) {
-	log.Printf("%s: %s\n", context, message)
+	logger.Printf("%s: %s\n", context, message)
 }
 
 func cleanUpProcessGroup(cmd *exec.Cmd) {
