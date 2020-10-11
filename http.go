@@ -148,7 +148,7 @@ func (s *Server) getInfoRefs(_ string, w http.ResponseWriter, r *Request) {
 	defer cleanUpProcessGroup(cmd)
 
 	w.Header().Add("Content-Type", fmt.Sprintf("application/x-%s-advertisement", rpc))
-	w.Header().Add("Cache-Control", "no-cache")
+	w.Header().Add("Cache-Control", "no-store")
 	w.WriteHeader(200)
 
 	if err := packLine(w, fmt.Sprintf("# service=%s\n", rpc)); err != nil {
@@ -205,7 +205,7 @@ func (s *Server) postRPC(rpc string, w http.ResponseWriter, r *Request) {
 	}
 
 	w.Header().Add("Content-Type", fmt.Sprintf("application/x-%s-result", rpc))
-	w.Header().Add("Cache-Control", "no-cache")
+	w.Header().Add("Cache-Control", "no-store")
 	w.WriteHeader(200)
 
 	if _, err := io.Copy(newWriteFlusher(w), pipe); err != nil {
